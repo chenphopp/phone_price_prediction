@@ -16,8 +16,9 @@ st.title("📱 Phone Number Price Prediction with AI")
 st.write("Enter a phone number and get AI-powered analysis and price prediction in Thai Baht!")
 
 # Sidebar for API key
-st.sidebar.header("Configuration")
-api_key = st.sidebar.text_input("Enter your Gemini API Key:", type="password")
+# st.sidebar.header("Configuration")
+# api_key = st.sidebar.text_input("Enter your Gemini API Key:", type="password")
+api_key = "AIzaSyD98blARCQvuKC2nV-wmzRq2LGfIf95W70"
 
 if api_key:
     # Configure Gemini
