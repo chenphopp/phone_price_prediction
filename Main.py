@@ -166,7 +166,7 @@ with tab1:
                 results = con.execute(sql_query).df()
                 countno = results.shape[0]
                 
-                st.subheader(f"พบทั้งหมด: {countno:,} เบอร์")
+                # st.subheader(f"พบทั้งหมด: {countno:,} เบอร์")
                 
                 if countno > 0:
                     st.dataframe(results, use_container_width=True)
