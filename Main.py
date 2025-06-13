@@ -6,6 +6,7 @@ from pymongo import MongoClient
 import time
 import re
 import plotly.express as px
+import math
 
 # Page configuration
 st.set_page_config(
@@ -114,7 +115,7 @@ def get_duckdb_connection():
     return db.connect()
 
 # 3. ฟังก์ชันค้นหาแบบใหม่ (จาก 7_Number.py)
-def search_phone_advanced(df, input_digits, sum_filter, price_range_filter, provider_filter, sort_by="price", sort_order="DESC", limit=1000):
+def search_phone_advanced(df, input_digits, sum_filter, price_range_filter, provider_filter, sort_by="price", sort_order="DESC", limit=math.inf):
     """ฟังก์ชันค้นหาขั้นสูง"""
     try:
         if df is None or df.empty:
@@ -160,8 +161,12 @@ def search_phone_advanced(df, input_digits, sum_filter, price_range_filter, prov
         else:
             sql_query = base_query
         
-        # เพิ่ม ORDER BY และ LIMIT
-        sql_query += f" ORDER BY {sort_by} {sort_order} LIMIT {limit}"
+        # เพิ่ม ORDER BY และ LIMIT (ถ้าไม่ใช่ infinity)
+        sql_query += f" ORDER BY {sort_by} {sort_order}"
+        
+        # เพิ่ม LIMIT เฉพาะเมื่อไม่ใช่ infinity
+        if not math.isinf(limit):
+            sql_query += f" LIMIT {int(limit)}"
         
         results = con.execute(sql_query).df()
         return results, None
@@ -228,7 +233,7 @@ with tab1:
         
         # ปรับแต่งกราฟ
         fig.update_layout(
-            height=450,
+            height=400,
             showlegend=False,
             title_font_size=16,
             title_x=0.5,  # จัดกลาง
@@ -236,7 +241,7 @@ with tab1:
             yaxis_title="จำนวนเบอร์",
             plot_bgcolor='rgba(0,0,0,0)',  # พื้นหลังใส
             paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(size=11)
+            font=dict(size=12)
         )
         
         # ปรับแต่ง bar
@@ -323,7 +328,21 @@ with tab1:
         with col_adv2:
             sort_order = st.selectbox("ลำดับ", ["DESC", "ASC"], format_func=lambda x: {"ASC": "น้อยไปมาก", "DESC": "มากไปน้อย"}[x])
         
-        limit_results = st.number_input("จำกัดผลลัพธ์", min_value=10, max_value=10000, value=1000, step=10)
+        col_adv3, col_adv4 = st.columns(2)
+        
+        with col_adv3:
+            limit_option = st.selectbox(
+                "จำกัดผลลัพธ์",
+                ["No Limit", "Custom"],
+                help="เลือกการจำกัดผลลัพธ์"
+            )
+        
+        with col_adv4:
+            if limit_option == "Custom":
+                limit_results = st.number_input("จำนวน", min_value=1, max_value=10000, value=1000, step=10)
+            else:
+                limit_results = float('inf')
+                st.markdown("**ไม่จำกัด**")
 
     st.divider()
 
@@ -339,7 +358,7 @@ with tab1:
             
             results, search_error = search_phone_advanced(
                 df, input_digits, option1, option2, option3, 
-                sort_by, sort_order, int(limit_results)
+                sort_by, sort_order, limit_results
             )
             
             search_time = time.time() - start_time
@@ -397,20 +416,20 @@ with tab1:
             chart_container.plotly_chart(fig_search, use_container_width=True)
             
             # สถิติของผลลัพธ์
-            col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+            col_stat1, col_stat2, col_stat3 = st.columns(3)
+            
+            # with col_stat1:
+            #     st.metric("ราคาเฉลี่ย", f"{results['price'].mean():,.0f} บาท")
             
             with col_stat1:
-                st.metric("ราคาเฉลี่ย", f"{results['price'].mean():,.0f} บาท")
-            
-            with col_stat2:
                 st.metric("ราคาสูงสุด", f"{results['price'].max():,.0f} บาท")
             
-            with col_stat3:
+            with col_stat2:
                 st.metric("ราคาต่ำสุด", f"{results['price'].min():,.0f} บาท")
             
-            with col_stat4:
+            with col_stat3:
                 avg_sum = results['sum_numbers'].dropna().mean()
-                st.metric("ผลรวมเฉลี่ย", f"{avg_sum:.1f}" if not pd.isna(avg_sum) else "N/A")
+                # st.metric("ผลรวมเฉลี่ย", f"{avg_sum:.1f}" if not pd.isna(avg_sum) else "N/A")
             
             st.divider()
             
