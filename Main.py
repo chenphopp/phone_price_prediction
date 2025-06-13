@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # Main page content
-st.title("📱 Phone Number Price Prediction & Search")
+st.title("📱 Phone Number Price Prediction")
 st.write("ค้นหาและประเมินราคาเบอร์โทรศัพท์ด้วย AI และ Machine Learning")
 
 # สร้าง tabs
