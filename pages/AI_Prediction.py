@@ -85,12 +85,12 @@ st.write("""
 - Considers cultural factors like lucky number 8 and 9
 """)
 
-st.subheader("🔑 API Key Setup")
-st.write("""
-1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Create a new API key
-3. Enter it in the sidebar
-""")
+# st.subheader("🔑 API Key Setup")
+# st.write("""
+# 1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+# 2. Create a new API key
+# 3. Enter it in the sidebar
+# """)
 
 # Footer
 st.markdown("---")
