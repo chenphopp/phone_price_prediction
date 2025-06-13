@@ -113,21 +113,21 @@ def search_phone_numbers(df, search_pattern, price_range, provider, digit_patter
             conditions.append(f"provider = '{provider}'")
         
         # Filter ตามรูปแบบเบอร์
-        if digit_pattern and digit_pattern.strip():
-            # แปลง pattern เป็น SQL LIKE - แปลง _ เป็น % สำหรับ wildcard หลายตัว
-            phone_like = digit_pattern.strip()
-            # แทนที่ _ ด้วย % สำหรับ SQL LIKE wildcard
-            phone_like = phone_like.replace('_', '%')
-            # ถ้าลงท้ายด้วย % แล้ว ไม่ต้องเพิ่ม
-            if not phone_like.endswith('%'):
-                phone_like += '%'
+        if digit_pattern and any(d.isdigit() for d in digit_pattern):
+            # แปลง pattern เป็น SQL LIKE
+            phone_like = ""
+            for char in digit_pattern:
+                if char.isdigit():
+                    phone_like += char
+                else:
+                    phone_like += "%"
             conditions.append(f"phone_number LIKE '{phone_like}'")
         
         # สร้าง SQL query
         sql_query = "SELECT * FROM phone_data"
         if conditions:
             sql_query += " WHERE " + " AND ".join(conditions)
-        # ql_query += " ORDER BY price DESC LIMIT 500"
+        # sql_query += " ORDER BY price DESC LIMIT 500"
         sql_query += " ORDER BY price DESC"
         
         results = con.execute(sql_query).df()
@@ -167,14 +167,21 @@ with tab1:
     # === SEARCH INTERFACE ===
     st.subheader("🔍 ค้นหาเบอร์")
     
-    # Phone number input
+    # Phone number input แบบ 10 กล่อง
     st.write("**กรอกเบอร์ที่ต้องการค้นหา:**")
-    phone_input = st.text_input(
-        "เบอร์โทรศัพท์ (ใช้ _ แทนตัวเลขที่ไม่ระบุ)", 
-        max_chars=10,
-        placeholder="เช่น 091_______ หรือ 081234567_",
-        help="กรอก 10 หลัก เช่น 0812345678 หรือ 091_______ สำหรับเบอร์ AIS ที่ขึ้นต้น 091"
-    )
+    input_digits = []
+    cols = st.columns(10)
+    for i in range(10):
+        digit = cols[i].text_input(f"{i+1}", max_chars=1, key=f"digit_input_{i}")
+        input_digits.append(digit.strip() if digit else "")
+
+    # สร้าง phone pattern จาก input digits
+    phone_pattern = ""
+    for digit in input_digits:
+        if digit and digit.isdigit():
+            phone_pattern += digit
+        else:
+            phone_pattern += "_"
 
     # Filter options
     col1, col2, col3 = st.columns(3)
@@ -202,15 +209,20 @@ with tab1:
     with col_btn2:
         auto_search = st.checkbox("ค้นหาอัตโนมัติเมื่อเปลี่ยนตัวกรอง", value=False)
     
+    # แสดง pattern ที่จะค้นหา
+    if any(d.isdigit() for d in input_digits):
+        display_pattern = "".join([d if d.isdigit() else "_" for d in input_digits])
+        st.info(f"🎯 รูปแบบที่จะค้นหา: **{display_pattern}**")
+    
     # ทำการค้นหา
-    should_search = search_clicked or (auto_search and (phone_input or option2 != 'All' or option3 != 'All'))
+    should_search = search_clicked or (auto_search and (any(d.isdigit() for d in input_digits) or option2 != 'All' or option3 != 'All'))
     
     if should_search and df is not None:
         with st.spinner("กำลังค้นหา..."):
             start_time = time.time()
             
-            # แปลง phone_input เป็น pattern
-            digit_pattern = phone_input.strip() if phone_input else ""
+            # แปลง input_digits เป็น pattern
+            digit_pattern = phone_pattern
             
             results, search_error = search_phone_numbers(
                 df, option1, option2, option3, digit_pattern
@@ -261,11 +273,11 @@ with tab1:
     # แสดงตัวอย่างการใช้งาน
     with st.expander("💡 วิธีการใช้งาน"):
         st.write("""
-        **การกรอกเบอร์:**
-        - `091_______` = เบอร์ AIS ที่ขึ้นต้นด้วย 091
-        - `081234567_` = เบอร์ที่ขึ้นต้นด้วย 081234567 และลงท้ายด้วยอะไรก็ได้
-        - `0812345678` = เบอร์ที่ระบุแน่นอน
-        - `08________` = เบอร์ AIS ทุกเบอร์
+        **การกรอกเบอร์ในกล่อง 10 หลัก:**
+        - กรอกเฉพาะตัวเลขที่ต้องการ เว้นกล่องที่ไม่ระบุไว้
+        - ตัวอย่าง: 0 9 1 _ _ _ _ _ _ _ = เบอร์ AIS ที่ขึ้นต้นด้วย 091
+        - ตัวอย่าง: 0 8 1 2 3 4 5 6 7 _ = เบอร์ที่ขึ้นต้น 081234567 ลงท้ายอะไรก็ได้
+        - ตัวอย่าง: 0 8 1 2 3 4 5 6 7 8 = เบอร์ที่ระบุแน่นอน
         
         **ผลรวมตัวเลข:**
         - ผลรวมของตัวเลขทั้งหมดในเบอร์โทร
@@ -280,8 +292,8 @@ with tab1:
         # แสดงตัวอย่างผลรวมตัวเลข
         if df is not None and not df.empty:
             st.write("**ตัวอย่างผลรวมตัวเลขที่มีในข้อมูล:**")
-            sample_sums = sorted(df['digit_sum'].unique())[:10]
-            st.write(f"ผลรวมที่พบ: {', '.join(map(str, sample_sums))}...")
+            sample_sums = sorted(df['digit_sum'].unique())[:15]
+            st.write(f"ผลรวมที่พบบ่อย: {', '.join(map(str, sample_sums))}...")
 
 with tab2:
     st.subheader("🤖 AI-Powered Prediction (Gemini)")
