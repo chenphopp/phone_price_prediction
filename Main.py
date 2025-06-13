@@ -145,7 +145,7 @@ st.write("ค้นหาและประเมินราคาเบอร�
 tab1, tab2, tab3 = st.tabs(["🔍 ค้นหาเบอร์", "🤖 AI Prediction", "🧠 ML Model"])
 
 with tab1:
-    st.write("# เบอร์ดีเบอร์ดัง มาแว้ววว! 👋")
+    # st.write("# เบอร์ดีเบอร์ดัง มาแว้ววว! 👋")
 
     # โหลดข้อมูลครั้งเดียว
     df, error_msg = load_phone_data()
@@ -162,7 +162,7 @@ with tab1:
         with col_stat2:
             st.metric("ผู้ให้บริการ", f"{df['provider'].nunique()} เครือข่าย")
 
-        st.success(f"✅ โหลดข้อมูลสำเร็จ - พร้อมค้นหา!")
+        st.success(f"Data loaded - Ready to search!")
 
     # === SEARCH INTERFACE ===
     st.subheader("🔍 ค้นหาเบอร์")
@@ -212,7 +212,7 @@ with tab1:
     # แสดง pattern ที่จะค้นหา
     if any(d.isdigit() for d in input_digits):
         display_pattern = "".join([d if d.isdigit() else "_" for d in input_digits])
-        st.info(f"🎯 รูปแบบที่จะค้นหา: **{display_pattern}**")
+        # st.info(f"🎯 รูปแบบที่จะค้นหา: **{display_pattern}**")
     
     # ทำการค้นหา
     should_search = search_clicked or (auto_search and (any(d.isdigit() for d in input_digits) or option2 != 'All' or option3 != 'All'))
