@@ -586,7 +586,7 @@ with col2:
 
 # Original functions (unchanged)
 def get_transform_number(number, feature_selection_columns):
-    df = pd.read_csv('n_109k_phone_numbers_xls.csv')
+    # df = pd.read_csv('n_109k_phone_numbers_xls.csv')
     df = load_data_number()
     df_feature_contains = pd.DataFrame(columns=df.columns)
     column_name = 'phone_number'
