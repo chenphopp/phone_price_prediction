@@ -571,45 +571,14 @@ with st.sidebar:
         st.markdown("---")
     
     # === การจัดการข้อมูล ===
-    st.markdown("### ⚙️ การจัดการ")
+    st.markdown("### ⚙️ Management")
     
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
-        if st.button("🔄 รีเฟรช", use_container_width=True):
+        if st.button("🔄 Refresh", use_container_width=True):
             st.cache_data.clear()
             st.cache_resource.clear()
             st.rerun()
-    
-    with col_btn2:
-        if df is not None and st.button("👁️ ตัวอย่าง", use_container_width=True):
-            sample_data = df.sample(n=3) if len(df) >= 3 else df
-            with st.expander("📋 ข้อมูลตัวอย่าง", expanded=True):
-                for idx, row in sample_data.iterrows():
-                    st.markdown(f"""
-                    **📱 {row['phone_number']}**  
-                    💰 {row['price']:,} ฿ | 📡 {row['provider']}  
-                    🔢 ผลรวม: {row['sum_numbers'] if pd.notna(row['sum_numbers']) else 'N/A'}
-                    """)
-                    st.markdown("---")
-    
-    # === เคล็ดลับ ===
-    with st.expander("💡 เคล็ดลับการค้นหา"):
-        st.markdown("""
-        **🔍 การค้นหาเบอร์:**
-        - กรอกเฉพาะตัวเลขที่ทราบ
-        - เว้นว่างช่องที่ไม่ระบุ
-        
-        **📊 ผลรวมตัวเลข:**
-        - ผลรวมของตัวเลขทั้งหมด
-        - เช่น: 081-234-5678 = 44
-        
-        **💎 เบอร์มงคล:**
-        - เลข 8, 9 มักราคาสูง
-        - ผลรวม 44, 54 เป็นที่นิยม
-        """)
-    
-    st.markdown("---")
-    st.markdown("*💫 อัปเดตล่าสุด: Real-time*")
 
 st.markdown("---")
 st.caption("Nida")
