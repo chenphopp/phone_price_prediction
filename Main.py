@@ -18,7 +18,8 @@ st.set_page_config(
 # === PERFORMANCE OPTIMIZATIONS ===
 
 # 1. Cache เฉพาะข้อมูล DataFrame (ไม่ cache connection)
-@st.cache_data(ttl=3600, show_spinner="กำลังโหลดข้อมูลจาก MongoDB และ CSV...")
+# @st.cache_data(ttl=3600, show_spinner="กำลังโหลดข้อมูลจาก MongoDB และ CSV...")
+@st.cache_data(ttl=3600, show_spinner="กำลังโหลดข้อมูลจาก MongoDB...")
 def load_phone_data():
     """โหลดและรวมข้อมูลจาก MongoDB และ CSV - Return เฉพาะ DataFrame"""
     try:
@@ -33,6 +34,7 @@ def load_phone_data():
         # Query ข้อมูลจาก MongoDB
         cursor = collection.find({}, {
             "_id": 1, 
+            "price": 1,
             "description": 1, 
             "provider": 1, 
             "seller_id": 1, 
@@ -45,14 +47,15 @@ def load_phone_data():
 
         df_mongo = df_mongo.rename(columns={"_id": "phone_number"})
 
-        # อ่าน CSV
-        csv_df = pd.read_csv("109k_phone_number_price.csv")
+        # # อ่าน CSV
+        # csv_df = pd.read_csv("109k_phone_number_price.csv")
         
-        if csv_df.empty:
-            return None, "ไม่พบข้อมูลใน CSV"
+        # if csv_df.empty:
+        #     return None, "ไม่พบข้อมูลใน CSV"
 
         # Join ข้อมูล
-        merged_df = pd.merge(csv_df, df_mongo, on='phone_number', how='inner')
+        # merged_df = pd.merge(csv_df, df_mongo, on='phone_number', how='inner')
+        merged_df = df_mongo
         
         # เพิ่มคอลัมน์ผลรวมตัวเลข
         def calculate_digit_sum(phone_number):
