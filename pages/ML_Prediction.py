@@ -550,9 +550,9 @@ st.markdown("""
 # Main header with gradient background
 st.markdown("""
 <div class="main-header">
-    <h1>🧠 Phone Number Price Prediction with AI</h1>
+    <h1>🧠 Phone Number Price Prediction with ML</h1>
     <p style="color: white; text-align: center; margin: 0.5rem 0;">
-        Using Gemini for predict the price
+        Using ML Model to predict the price
     </p>
 </div>
 """, unsafe_allow_html=True)
