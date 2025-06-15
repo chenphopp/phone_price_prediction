@@ -669,7 +669,7 @@ feature_class_sele_columns = ['Digit_10_5',
  'score_ConsecutiveDigitScore']
 
 # Cache functions for better performance
-@st.cache_data(ttl=3600, show_spinner="กำลังโหลดข้อมูลจาก MongoDB และ CSV...")
+@st.cache_data(ttl=3600, show_spinner="กำลังโหลดข้อมูลจาก MongoDB")
 def load_phone_data():
     """โหลดและรวมข้อมูลจาก MongoDB และ CSV - Return เฉพาะ DataFrame"""
     try:
@@ -834,7 +834,7 @@ if st.button("🔍 Analyze Price Number", key="analyze_btn"):
         if len(clean_number) != 10 or not clean_number.startswith('0') or not clean_number.isdigit():
             st.error("❌ รูปแบบหมายเลขโทรศัพท์ไม่ถูกต้อง กรุณากรอกหมายเลข 10 หลักที่ขึ้นต้นด้วย 0")
         else:
-            with st.spinner("🤖 กำลังวิเคราะห์ข้อมูลด้วย AI..."):
+            with st.spinner("🤖 กำลังวิเคราะห์ข้อมูล"):
                 try:
                     # Get transformed data
                     new_data_number = get_transform_number(clean_number, feature_sele_columns)
@@ -852,49 +852,135 @@ if st.button("🔍 Analyze Price Number", key="analyze_btn"):
                     
                     line_datas = []
                     
-                    # Create columns for regression results
-                    reg_col1, reg_col2, reg_col3 = st.columns(3)
-                    
-                    with reg_col1:
-                        st.markdown("""
-                        <div class="prediction-card">
-                            <h4 style="color: #667eea; text-align: center;">🎯 Linear Model</h4>
-                        """, unsafe_allow_html=True)
+                    # Create columns for regression results with improved styling
+                    reg_col1, reg_col2, reg_col3 = st.columns(3, gap="medium")
+
+                    # Define model configurations
+                    models_config = [
+                        {
+                            'key': 'linear',
+                            'title': '🎯 Linear Regression',
+                            'color': '#007bff'
+                        },
+                        {
+                            'key': 'knn', 
+                            'title': '🔍 K-Nearest Neighbors',
+                            'color': '#28a745'
+                        },
+                        {
+                            'key': 'elas',
+                            'title': '⚡ Elastic Net',
+                            'color': '#dc3545'
+                        }
+                    ]
+
+                    columns = [reg_col1, reg_col2, reg_col3]
+
+                    # Process each model
+                    for i, (col, config) in enumerate(zip(columns, models_config)):
+                        with col:
+                            # Create styled container
+                            st.markdown(f"""
+                            <div style="
+                                background: #f8f9fa;
+                                border: 1px solid #e9ecef;
+                                border-radius: 8px;
+                                padding: 15px;
+                                margin: 3px;
+                                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+                                text-align: center;
+                            ">
+                            """, unsafe_allow_html=True)
+                            
+                            # Model title with better typography
+                            st.markdown(f"""
+                            <h3 style="
+                                color: {config['color']};
+                                margin: 0 0 15px 0;
+                                font-weight: bold;
+                                font-size: 1.2em;
+                            ">{config['title']}</h3>
+                            """, unsafe_allow_html=True)
+                            
+                            # Get predictions
+                            pred, low, high = predict_with_interval_log(loaded_model[config['key']], new_data_number, X_train, y_train)
+                            line_datas.append([low, high, pred])
+                            
+                            # Main prediction with custom styling
+                            st.markdown(f"""
+                            <div style="
+                                background: #ffffff;
+                                border: 1px solid #dee2e6;
+                                border-radius: 8px;
+                                padding: 15px;
+                                margin: 10px 0;
+                            ">
+                                <h2 style="
+                                    color: {config['color']};
+                                    margin: 0;
+                                    font-size: 1.8em;
+                                    font-weight: bold;
+                                ">{pred:,.0f} ฿</h2>
+                                <p style="
+                                    margin: 5px 0 0 0;
+                                    color: #6c757d;
+                                    font-weight: normal;
+                                ">ราคาทำนาย</p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            # Price range with icons
+                            st.markdown(f"""
+                            <div style="
+                                border-top: 1px solid #e9ecef;
+                                padding-top: 15px;
+                                margin-top: 15px;
+                            ">
+                                <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 8px;">
+                                    <span style="color: {config['color']}; font-size: 1.1em;">📊</span>
+                                    <span style="margin-left: 8px; font-weight: 500; color: #495057;">ช่วงราคา</span>
+                                </div>
+                                <p style="
+                                    margin: 0;
+                                    color: #6c757d;
+                                    font-size: 1.1em;
+                                    font-weight: 500;
+                                ">{low:,.0f} - {high:,.0f} ฿</p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            st.markdown("</div>", unsafe_allow_html=True)
+
+                    # Add comparison summary
+                    st.markdown("---")
+                    st.markdown("### 📈 สรุปการเปรียบเทียบ")
+
+                    comparison_col1, comparison_col2 = st.columns(2)
+
+                    with comparison_col1:
+                        # Find best and worst predictions
+                        predictions = [data[2] for data in line_datas]
+                        min_pred_idx = predictions.index(min(predictions))
+                        max_pred_idx = predictions.index(max(predictions))
                         
-                        pred, low, high = predict_with_interval_log(loaded_model['linear'], new_data_number, X_train, y_train)
-                        line_datas.append([low, high, pred])
+                        st.markdown(f"""
+                        **🏆 ราคาสูงสุด:** {models_config[max_pred_idx]['title'].split(' ', 1)[1]} - {max(predictions):,.0f} ฿  
+                        **💰 ราคาต่ำสุด:** {models_config[min_pred_idx]['title'].split(' ', 1)[1]} - {min(predictions):,.0f} ฿  
+                        **📊 ส่วนต่าง:** {max(predictions) - min(predictions):,.0f} ฿
+                        """)
+
+                    with comparison_col2:
+                        # Calculate average and show recommendation
+                        avg_pred = sum(predictions) / len(predictions)
+                        ranges = [(data[1] - data[0]) for data in line_datas]
+                        most_confident_idx = ranges.index(min(ranges))
                         
-                        st.metric("ราคาทำนาย", f"{pred:,.0f} บาท")
-                        st.write(f"**ช่วงราคา:** {low:,.0f} - {high:,.0f} บาท")
-                        st.markdown("</div>", unsafe_allow_html=True)
-                    
-                    with reg_col2:
-                        st.markdown("""
-                        <div class="prediction-card">
-                            <h4 style="color: #667eea; text-align: center;">🔍 K-Nearest Neighbors</h4>
-                        """, unsafe_allow_html=True)
-                        
-                        pred, low, high = predict_with_interval_log(loaded_model['knn'], new_data_number, X_train, y_train)
-                        line_datas.append([low, high, pred])
-                        
-                        st.metric("ราคาทำนาย", f"{pred:,.0f} บาท")
-                        st.write(f"**ช่วงราคา:** {low:,.0f} - {high:,.0f} บาท")
-                        st.markdown("</div>", unsafe_allow_html=True)
-                    
-                    with reg_col3:
-                        st.markdown("""
-                        <div class="prediction-card">
-                            <h4 style="color: #667eea; text-align: center;">⚡ Elastic Model</h4>
-                        """, unsafe_allow_html=True)
-                        
-                        pred, low, high = predict_with_interval_log(loaded_model['elas'], new_data_number, X_train, y_train)
-                        line_datas.append([low, high, pred])
-                        
-                        st.metric("ราคาทำนาย", f"{pred:,.0f} บาท")
-                        st.write(f"**ช่วงราคา:** {low:,.0f} - {high:,.0f} บาท")
-                        st.markdown("</div>", unsafe_allow_html=True)
+                        st.markdown(f"""
+                        **🎯 ราคาเฉลี่ย:** {avg_pred:,.0f} ฿  
+                        """)
                     
                     # Enhanced Visualization
+                    st.markdown("---")
                     st.markdown("### 📊 เปรียบเทียบผลการทำนายของแต่ละโมเดล")
                     
                     # Import plotly
@@ -914,7 +1000,7 @@ if st.button("🔍 Analyze Price Number", key="analyze_btn"):
                             line=dict(color=colors[i], width=8),
                             name=f'{model_names[i]} (ช่วงราคา)',
                             legendgroup=f'group{i}',
-                            hovertemplate=f'<b>{model_names[i]}</b><br>ช่วงราคา: %{{x:,.0f}} บาท<extra></extra>'
+                            hovertemplate=f'<b>{model_names[i]}</b><br>ช่วงราคา: %{{x:,.0f}} ฿<extra></extra>'
                         ))
                         # Add predicted value marker
                         fig.add_trace(go.Scatter(
@@ -925,7 +1011,7 @@ if st.button("🔍 Analyze Price Number", key="analyze_btn"):
                             name=f'{model_names[i]} (ราคาทำนาย)',
                             legendgroup=f'group{i}',
                             showlegend=False,
-                            hovertemplate=f'<b>{model_names[i]}</b><br>ราคาทำนาย: %{{x:,.0f}} บาท<extra></extra>'
+                            hovertemplate=f'<b>{model_names[i]}</b><br>ราคาทำนาย: %{{x:,.0f}} ฿<extra></extra>'
                         ))
                     
                     fig.update_layout(
@@ -934,7 +1020,7 @@ if st.button("🔍 Analyze Price Number", key="analyze_btn"):
                             'x': 0.5,
                             'font': {'size': 18, 'color': '#333'}
                         },
-                        xaxis_title='ราคา (บาท)',
+                        xaxis_title='ราคา (฿)',
                         yaxis_title='โมเดล',
                         height=400,
                         yaxis=dict(
@@ -950,60 +1036,105 @@ if st.button("🔍 Analyze Price Number", key="analyze_btn"):
                     st.plotly_chart(fig, use_container_width=True)
                     
                     # Classification Models Section
+                    # Classification Models Section
                     st.markdown("## 🎯 Classification Models")
-                    
+
                     range_bins = ['699 - 3,990', '3,995 - 9,999', '10,000 - 35,000', '35,000 - 195,000', 'มากกว่า 195,000']
                     X_class = df_pre.iloc[:, 20:].drop(columns=['price_normalize'])[feature_class_sele_columns]
                     new_data_class = get_transform_number(clean_number, feature_class_sele_columns)
-                    
+
+                    # Define classification model configurations
+                    class_models_config = [
+                        {
+                            'key': 'ny',
+                            'title': '🧠 Naive Bayes',
+                            'color': '#17a2b8'
+                        },
+                        {
+                            'key': 'lr', 
+                            'title': '📊 Logistic Regression',
+                            'color': '#fd7e14'
+                        },
+                        {
+                            'key': 'knn',
+                            'title': '🔍 K-Nearest Neighbors',
+                            'color': '#6f42c1'
+                        }
+                    ]
+
                     # Classification results in columns
-                    class_col1, class_col2, class_col3 = st.columns(3)
-                    
-                    with class_col1:
-                        st.markdown("""
-                        <div class="classification-result">
-                            <h4>🧠 Naive Bayes Model</h4>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        prediction = loaded_class_model['ny'].predict(new_data_class)[0]
-                        st.markdown(f"""
-                        <div class="price-range">
-                            <strong>ระดับราคา: {range_bins[prediction]} บาท</strong>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    with class_col2:
-                        st.markdown("""
-                        <div class="classification-result">
-                            <h4>📊 Logistic Regression Model</h4>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        prediction = loaded_class_model['lr'].predict(new_data_class)[0]
-                        st.markdown(f"""
-                        <div class="price-range">
-                            <strong>ระดับราคา: {range_bins[prediction]} บาท</strong>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    with class_col3:
-                        st.markdown("""
-                        <div class="classification-result">
-                            <h4>🔍 K-Nearest Neighbors Model</h4>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        prediction = loaded_class_model['knn'].predict(new_data_class)[0]
-                        st.markdown(f"""
-                        <div class="price-range">
-                            <strong>ระดับราคา: {range_bins[prediction]} บาท</strong>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    # Success message
-                    st.success("✅ Prediction Done!")
-                    
+                    class_col1, class_col2, class_col3 = st.columns([1, 1, 1], gap="medium")
+                    class_columns = [class_col1, class_col2, class_col3]
+
+                    # Process each classification model
+                    for i, (col, config) in enumerate(zip(class_columns, class_models_config)):
+                        with col:
+                            # Create styled container
+                            st.markdown(f"""
+                            <div style="
+                                background: #f8f9fa;
+                                border: 1px solid #e9ecef;
+                                border-radius: 8px;
+                                padding: 15px;
+                                margin: 3px;
+                                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+                                text-align: center;
+                            ">
+                            """, unsafe_allow_html=True)
+                            
+                            # Model title
+                            st.markdown(f"""
+                            <h3 style="
+                                color: {config['color']};
+                                margin: 0 0 15px 0;
+                                font-weight: bold;
+                                font-size: 1.2em;
+                            ">{config['title']}</h3>
+                            """, unsafe_allow_html=True)
+                            
+                            # Get prediction
+                            prediction = loaded_class_model[config['key']].predict(new_data_class)[0]
+                            
+                            # Display price range with custom styling
+                            st.markdown(f"""
+                            <div style="
+                                background: #ffffff;
+                                border: 1px solid #dee2e6;
+                                border-radius: 8px;
+                                padding: 15px;
+                                margin: 10px 0;
+                            ">
+                                <h2 style="
+                                    color: {config['color']};
+                                    margin: 0;
+                                    font-size: 1.6em;
+                                    font-weight: bold;
+                                ">{range_bins[prediction]} ฿</h2>
+                                <p style="
+                                    margin: 5px 0 0 0;
+                                    color: #6c757d;
+                                    font-weight: normal;
+                                ">ระดับราคา</p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            st.markdown("</div>", unsafe_allow_html=True)
+
+                    # Add classification summary
+                    st.markdown("---")
+                    st.markdown("### 📊 สรุปการจำแนกประเภท")
+
+                    # Get all predictions and display them
+                    predictions = []
+                    for i, config in enumerate(class_models_config):
+                        pred = loaded_class_model[config['key']].predict(new_data_class)[0]
+                        predictions.append((config['title'].split(' ', 1)[1], range_bins[pred]))
+
+                    # Display predictions in a clean format
+                    st.markdown("**ผลการทำนายของแต่ละ Model:**")
+                    for model_name, predicted_range in predictions:
+                        st.markdown(f"• **{model_name}:** {predicted_range} ฿")
+
                 except Exception as e:
                     st.error(f"❌ เกิดข้อผิดพลาดในการวิเคราะห์: {str(e)}")
 
