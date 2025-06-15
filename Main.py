@@ -118,8 +118,10 @@ def get_duckdb_connection():
     return db.connect()
 
 # 3. ฟังก์ชันค้นหาแบบใหม่ (จาก 7_Number.py)
+# แก้ไขฟังก์ชัน search_phone_advanced ให้รองรับ format 083-383-2360
+
 def search_phone_advanced(df, input_digits, sum_filter, price_range_filter, provider_filter, sort_by="price", sort_order="DESC", limit=math.inf):
-    """ฟังก์ชันค้นหาขั้นสูง"""
+    """ฟังก์ชันค้นหาขั้นสูง - ค้นหาตำแหน่งที่แน่นอนของตัวเลข (รองรับ format xxx-xxx-xxxx)"""
     try:
         if df is None or df.empty:
             return None, "ไม่มีข้อมูลให้ค้นหา"
@@ -130,18 +132,18 @@ def search_phone_advanced(df, input_digits, sum_filter, price_range_filter, prov
         
         conditions = []
         
-        # 1. Phone number pattern
-        phone_pattern = "".join([d for d in input_digits if d])
-        if phone_pattern:
-            # สร้าง pattern สำหรับ LIKE query
-            like_pattern = ""
-            for i, digit in enumerate(input_digits):
-                if digit:
-                    like_pattern += digit
-                else:
-                    like_pattern += "%"  # wildcard
-            
-            conditions.append(f"phone_number LIKE '{like_pattern}'")
+        # 1. Phone number pattern - ค้นหาตำแหน่งที่แน่นอน
+        # ลบเครื่องหมาย - ออกก่อนเช็คตำแหน่ง
+        phone_conditions = []
+        for i, digit in enumerate(input_digits):
+            if digit and digit.strip():  # ถ้ามีการกรอกตัวเลข
+                # ใช้ REPLACE เพื่อลบเครื่องหมาย - ก่อน แล้วใช้ SUBSTRING เช็คตำแหน่ง
+                phone_conditions.append(f"SUBSTRING(REPLACE(CAST(phone_number AS VARCHAR), '-', ''), {i+1}, 1) = '{digit.strip()}'")
+        
+        # รวมเงื่อนไขตำแหน่งทั้งหมด
+        if phone_conditions:
+            combined_phone_condition = " AND ".join(phone_conditions)
+            conditions.append(f"({combined_phone_condition})")
         
         # 2. Sum numbers filter
         if sum_filter != 'All':
@@ -168,6 +170,77 @@ def search_phone_advanced(df, input_digits, sum_filter, price_range_filter, prov
         sql_query += f" ORDER BY {sort_by} {sort_order}"
         
         # เพิ่ม LIMIT เฉพาะเมื่อไม่ใช่ infinity
+        if not math.isinf(limit):
+            sql_query += f" LIMIT {int(limit)}"
+        
+        # Debug: แสดง SQL query (สามารถเอาออกได้ในโปรดักชัน)
+        # print(f"SQL Query: {sql_query}")
+        
+        results = con.execute(sql_query).df()
+        return results, None
+        
+    except Exception as e:
+        return None, f"Search error: {str(e)}"
+
+
+# ทางเลือกที่ 2: ใช้ Regular Expression (รองรับ format xxx-xxx-xxxx)
+def search_phone_advanced(df, input_digits, sum_filter, price_range_filter, provider_filter, sort_by="price", sort_order="DESC", limit=math.inf):
+    """ฟังก์ชันค้นหาขั้นสูงด้วย Regular Expression (รองรับ format xxx-xxx-xxxx)"""
+    try:
+        if df is None or df.empty:
+            return None, "ไม่มีข้อมูลให้ค้นหา"
+        
+        # สร้าง connection ใหม่สำหรับการค้นหา
+        con = get_duckdb_connection()
+        con.register('phone_data', df)
+        
+        conditions = []
+        
+        # 1. Phone number pattern ด้วย Regular Expression
+        # สร้าง regex pattern สำหรับ format xxx-xxx-xxxx
+        if any(d and d.strip() for d in input_digits):
+            # สร้าง pattern โดยคำนึงถึงตำแหน่งของ - (หลังตำแหน่งที่ 3 และ 6)
+            regex_pattern = ""
+            for i, digit in enumerate(input_digits):
+                # เพิ่ม - ในตำแหน่งที่เหมาะสม
+                if i == 3:
+                    regex_pattern += "-"
+                elif i == 6:
+                    regex_pattern += "-"
+                
+                # เพิ่มตัวเลขหรือ wildcard
+                if digit and digit.strip():
+                    regex_pattern += digit.strip()
+                else:
+                    regex_pattern += "\\d"  # จับคู่กับตัวเลขใดก็ได้
+            
+            # ใช้ REGEXP_MATCHES สำหรับ DuckDB
+            conditions.append(f"REGEXP_MATCHES(CAST(phone_number AS VARCHAR), '^{regex_pattern}$')")
+        
+        # 2. Sum numbers filter
+        if sum_filter != 'All':
+            conditions.append(f"sum_numbers = {sum_filter}")
+        
+        # 3. Price range filter
+        if price_range_filter != 'All':
+            conditions.append(f"price_range = '{price_range_filter}'")
+        
+        # 4. Provider filter
+        if provider_filter != 'All':
+            conditions.append(f"provider = '{provider_filter}'")
+        
+        # สร้าง SQL Query
+        base_query = "SELECT * FROM phone_data"
+        
+        if conditions:
+            where_clause = " AND ".join(conditions)
+            sql_query = f"{base_query} WHERE {where_clause}"
+        else:
+            sql_query = base_query
+        
+        # เพิ่ม ORDER BY และ LIMIT
+        sql_query += f" ORDER BY {sort_by} {sort_order}"
+        
         if not math.isinf(limit):
             sql_query += f" LIMIT {int(limit)}"
         
@@ -259,6 +332,64 @@ with tab1:
         chart_container.plotly_chart(fig, use_container_width=True)
 
     st.divider()
+
+    st.subheader("💰 ราคาเฉลี่ยของเบอร์โทรศัพท์ตามผลรวม")
+
+    top_n = st.slider("เลือกจำนวน Top ราคาเฉลี่ยของเบอร์โทรศัพท์ตามผลรวม", min_value=5, max_value=40, step=5, value=20)
+
+    if 'sum_numbers' in df.columns and 'price' in df.columns:
+        chart_df = df[['sum_numbers', 'price']].copy()
+
+        # แปลง sum_numbers เป็น int ก่อน แล้วค่อยแปลงเป็น str
+        chart_df['sum_numbers'] = pd.to_numeric(chart_df['sum_numbers'], errors='coerce').dropna().astype(int).astype(str)
+        chart_df['price'] = pd.to_numeric(chart_df['price'], errors='coerce')
+        chart_df.dropna(subset=['sum_numbers', 'price'], inplace=True)
+
+        if not chart_df.empty:
+            avg_df = chart_df.groupby('sum_numbers')['price'].mean().reset_index()
+            avg_df['price'] = avg_df['price'].round(2)
+
+            # ใช้ top_n ที่เลือกจาก slider
+            avg_df = avg_df.sort_values(by='price', ascending=False).head(top_n)
+
+            ordered_cats = avg_df['sum_numbers'].tolist()
+            avg_df['sum_numbers'] = pd.Categorical(avg_df['sum_numbers'], categories=ordered_cats, ordered=True)
+
+            fig = px.bar(
+                avg_df,
+                x='sum_numbers',
+                y='price',
+                title=f"Top {top_n} ราคาเฉลี่ยของเบอร์โทรศัพท์ตามผลรวม",
+                color='price',
+                color_continuous_scale='plasma',
+                text='price'
+            )
+
+            fig.update_layout(
+                height=500,
+                title_x=0.5,
+                xaxis_title="ผลรวมของเบอร์",
+                yaxis_title="ราคาเฉลี่ย (บาท)",
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(size=12),
+                xaxis=dict(
+                    type='category',
+                    categoryorder='array',
+                    categoryarray=ordered_cats
+                )
+            )
+
+            fig.update_traces(
+                texttemplate='%{text:,.2f}',
+                textposition='outside'
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("ไม่มีข้อมูลที่ใช้ได้หลังล้างค่า NaN")
+    else:
+        st.warning("ไม่พบคอลัมน์ 'sum_numbers' หรือ 'price'")
 
     # === SEARCH INTERFACE ===
     st.subheader("🔍 ค้นหาเบอร์")
@@ -487,9 +618,9 @@ with tab2:
 with tab3:
     st.subheader("🧠 Machine Learning Model")
     st.write("ประเมินราคาด้วย Machine Learning Model")
-    st.write("• ใช้ข้อมูลราคาจริงจากตลาด")
-    st.write("🚧 **Under developing**")
-    if st.button("⏳ ML Model (Coming Soon)", key="ml_predict", disabled=True):
+    st.write("• ใช้ข้อมูลราคาจริงจากตลาดในการ train model")
+    st.write("• Predict ราคาด้วย Regression และ Classification Model")
+    if st.button("⏳ เข้าสู่หน้า ML Prediction", key="ml_predict", disabled=False):
         st.switch_page("pages/ML_Prediction.py")
 
 # === SIDEBAR - สวยงาม ===
